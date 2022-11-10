@@ -12,6 +12,30 @@ let db;
 
 mongoClient.connect().then(() => {
     db = mongoClient.db("batePapoUol")
+});
+
+app.post("/participants", async (req, res) => {
+    const newParticipant = {
+        name: req.body.name,
+        lastStatus: Date.now()
+    }
+    console.log(newParticipant);
+    try{
+        await db.collection("participants").insertOne(newParticipant);
+        res.sendStatus(201)
+
+    } catch(err){
+        res.sendStatus(422);
+    }
+})
+
+app.get("/participants", async (req, res) => {
+    try{
+        const participants = await db.collection("participants").find().toArray()
+        res.send(participants)
+    } catch(err){
+        res.sendStatus(422);
+    }
 })
 
 
