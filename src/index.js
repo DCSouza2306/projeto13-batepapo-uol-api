@@ -82,7 +82,7 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   const newMessage = req.body;
-  const fromUser = req.headers.User;
+  const fromUser = req.headers.user;
 
   if (!fromUser) {
     res.sendStatus(401);
@@ -124,7 +124,7 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
   const limit = parseInt(req.query.limit);
-  const user = req.headers.User;
+  const user = req.headers.user;
 
   try {
     const messages = await db
@@ -160,30 +160,35 @@ app.post("/status", async (req, res) => {
     res.sendStatus(422);
   }
 });
-setInterval(deleteParticipant, 5000);
+setInterval(deleteParticipant, 15000);
 
 async function deleteParticipant() {
   try {
     const data = Date.now();
-
-    const users = await db.collection("participants").find().toArray();
-    const usersToDelete = users.filter(u => u.lastStatus > data-u.lastStatus)
-    console.log(usersToDelete)
-
-   /*  const usersToDelete = await db
+    const usersToDelete = await db
       .collection("participants")
-      .findOneAndDelete({ lastStatus: { $lt: data - 10 } });
-    if (usersToDelete.deletedCount > 0) {
-      await db.collection("messages").insertOne({
-        from: usersToDelete.name,
+      .find({ lastStatus: { $lt: data - 10000 } })
+      .toArray();
+    const deleteParticipant = await db
+      .collection("participants")
+      .deleteMany({ lastStatus: { $lt: data - 10000 } });
+    if (deleteParticipant.deletedCount > 0) {
+      let message = {
+        from: "",
         to: "Todos",
         text: "sai da sala...",
         type: "status",
         time: dayjs().format("HH:mm:ss"),
+      };
+
+      let participantsDeleteds = [];
+      usersToDelete.forEach((e) => {
+        participantsDeleteds.push({ ...message, from: e.name });
       });
-    } */
+      await db.collection("messages").insertMany(participantsDeleteds);
+    }
   } catch (err) {
-    console.log("deu ruim");
+    console.log(err);
   }
 }
 
