@@ -82,65 +82,111 @@ app.get("/participants", async (req, res) => {
 
 app.post("/messages", async (req, res) => {
   const newMessage = req.body;
-  const fromUser = req.headers.user;
+  const fromUser = req.headers.User;
 
-  if(!fromUser){
+  if (!fromUser) {
     res.sendStatus(401);
     return;
   }
 
-  const validation = messageSchema.validate(newMessage,{abortEarly: false});
+  const validation = messageSchema.validate(newMessage, { abortEarly: false });
 
-  if(validation.error){
+  if (validation.error) {
     const errors = validation.error.details.map((detail) => detail.message);
     res.status(422).send(errors);
     return;
   }
 
-  try{
-    const userExist = await db.collection("participants").findOne({name: fromUser});
-    if(!userExist){
-       return res.status(422).send({message: "Usuario inexistente na lista de participantes"})
+  try {
+    const userExist = await db
+      .collection("participants")
+      .findOne({ name: fromUser });
+    if (!userExist) {
+      return res
+        .status(422)
+        .send({ message: "Usuario inexistente na lista de participantes" });
     }
 
     const message = {
-        from: fromUser,
-        to: newMessage.to,
-        text: newMessage.text,
-        type: newMessage.type,
-        time:dayjs().format("HH:mm:ss")
-    }
+      from: fromUser,
+      to: newMessage.to,
+      text: newMessage.text,
+      type: newMessage.type,
+      time: dayjs().format("HH:mm:ss"),
+    };
 
     await db.collection("messages").insertOne(message);
     res.sendStatus(201);
-
-  } catch(err){
-    console.log("erro é aqui")
+  } catch (err) {
     res.sendStatus(422);
   }
 });
 
 app.get("/messages", async (req, res) => {
-    const limit = parseInt(req.query.limit);
-    const user = req.headers.user;
+  const limit = parseInt(req.query.limit);
+  const user = req.headers.User;
 
-    try{
-        const messages = await db.collection("messages")
-        .find(
-            {
-                $or:[
-                    {to:{$in: ["Todos", user]}},
-                    {from: user}
-                ]
-                
-            }
-        ).toArray();
-        res.send(messages.slice(-limit).reverse());
+  try {
+    const messages = await db
+      .collection("messages")
+      .find({
+        $or: [{ to: { $in: ["Todos", user] } }, { from: user }],
+      })
+      .toArray();
+    res.send(messages.slice(-limit));
+  } catch (err) {
+    res.sendStatus(422);
+  }
+});
 
-    } catch(err){
-        res.sendStatus(422);
+app.post("/status", async (req, res) => {
+  const user = req.headers.user;
+
+  try {
+    const userExist = await db
+      .collection("participants")
+      .findOne({ name: user });
+    if (!userExist) {
+      return res.sendStatus(404);
     }
-})
+    await db
+      .collection("participants")
+      .updateOne(
+        { name: user },
+        { $set: { ...userExist, lastStatus: Date.now() } }
+      );
+    res.sendStatus(200);
+  } catch (err) {
+    res.sendStatus(422);
+  }
+});
+setInterval(deleteParticipant, 5000);
+
+async function deleteParticipant() {
+  try {
+    const data = Date.now();
+
+    const users = await db.collection("participants").find().toArray();
+    const usersToDelete = users.filter(u => u.lastStatus > data-u.lastStatus)
+    console.log(usersToDelete)
+
+   /*  const usersToDelete = await db
+      .collection("participants")
+      .findOneAndDelete({ lastStatus: { $lt: data - 10 } });
+    if (usersToDelete.deletedCount > 0) {
+      await db.collection("messages").insertOne({
+        from: usersToDelete.name,
+        to: "Todos",
+        text: "sai da sala...",
+        type: "status",
+        time: dayjs().format("HH:mm:ss"),
+      });
+    } */
+  } catch (err) {
+    console.log("deu ruim");
+  }
+}
+
 app.listen(5000, () => {
   console.log("Server running in port 5000");
 });
